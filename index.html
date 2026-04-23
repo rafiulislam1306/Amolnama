@@ -726,17 +726,29 @@
                     <input type="number" id="edit-tx-qty" class="settings-input" style="text-align:center;">
                 </div>
                 <div style="flex:2;">
-                    <label style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">Total Amount</label>
+                    <label style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">Total Tk</label>
                     <input type="number" id="edit-tx-amount" class="settings-input">
                 </div>
             </div>
             
-            <div style="margin-bottom:24px;">
+            <div style="margin-bottom:12px;">
                 <label style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">Payment Method</label>
-                <select id="edit-tx-payment" class="settings-input" style="text-align:left;">
+                <select id="edit-tx-payment" class="settings-input" style="text-align:left;" onchange="toggleEditSplitFields()">
                     <option value="Cash">Cash</option>
                     <option value="MFS">MFS</option>
+                    <option value="Split">Split</option>
                 </select>
+            </div>
+
+            <div id="edit-split-fields" style="display:none; gap:8px; margin-bottom:24px;">
+                <div style="flex:1;">
+                    <label style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">Cash Portion</label>
+                    <input type="number" id="edit-tx-cash" class="settings-input" style="text-align:center;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">MFS Portion</label>
+                    <input type="number" id="edit-tx-mfs" class="settings-input" style="text-align:center;">
+                </div>
             </div>
 
             <button class="save-ers-btn" onclick="saveTxEdit()">💾 UPDATE</button>
@@ -1118,8 +1130,13 @@
             }
         }
 
-        async function addTransactionToCloud(type, name, amount, qty, payment) {
+        async function addTransactionToCloud(type, name, amount, qty, payment, cashAmt = 0, mfsAmt = 0) {
             if(!currentUser) return;
+
+            // Auto-fill for normal Cash/MFS saves
+            if (payment === 'Cash') { cashAmt = amount; mfsAmt = 0; }
+            if (payment === 'MFS') { cashAmt = 0; mfsAmt = amount; }
+
             const today = new Date().toLocaleDateString('en-GB');
             const tx = {
                 id: Date.now(), 
@@ -1128,6 +1145,8 @@
                 amount: amount,
                 qty: qty,
                 payment: payment,
+                cashAmt: cashAmt,
+                mfsAmt: mfsAmt,
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
                 dateStr: today
             };
@@ -1149,6 +1168,11 @@
         // --- EDIT TRANSACTION LOGIC ---
         let currentEditingTxId = null;
 
+        function toggleEditSplitFields() {
+            let method = document.getElementById('edit-tx-payment').value;
+            document.getElementById('edit-split-fields').style.display = (method === 'Split') ? 'flex' : 'none';
+        }
+
         function openEditTx(localId) {
             let tx = transactions.find(t => t.id === localId);
             if (!tx) return;
@@ -1160,7 +1184,12 @@
             document.getElementById('edit-tx-qty').value = tx.qty;
             document.getElementById('edit-tx-amount').value = tx.amount;
             document.getElementById('edit-tx-payment').value = tx.payment;
+            
+            // Fill split fields if they exist (or auto-fill based on old Cash/MFS data)
+            document.getElementById('edit-tx-cash').value = tx.cashAmt !== undefined ? tx.cashAmt : (tx.payment === 'Cash' ? tx.amount : '');
+            document.getElementById('edit-tx-mfs').value = tx.mfsAmt !== undefined ? tx.mfsAmt : (tx.payment === 'MFS' ? tx.amount : '');
 
+            toggleEditSplitFields();
             openModal('modal-edit-tx');
         }
 
@@ -1176,11 +1205,27 @@
             let newQty = parseInt(document.getElementById('edit-tx-qty').value) || 0;
             let newAmount = parseFloat(document.getElementById('edit-tx-amount').value) || 0;
             let newPayment = document.getElementById('edit-tx-payment').value;
+            let newCashAmt = 0, newMfsAmt = 0;
+
+            if (newPayment === 'Cash') { 
+                newCashAmt = newAmount; 
+            } else if (newPayment === 'MFS') { 
+                newMfsAmt = newAmount; 
+            } else if (newPayment === 'Split') {
+                newCashAmt = parseFloat(document.getElementById('edit-tx-cash').value) || 0;
+                newMfsAmt = parseFloat(document.getElementById('edit-tx-mfs').value) || 0;
+                if (newCashAmt + newMfsAmt !== newAmount) {
+                    alert("Split amounts must equal the Total Tk!");
+                    return;
+                }
+            }
 
             // 1. Update the local app instantly
             tx.qty = newQty;
             tx.amount = newAmount;
             tx.payment = newPayment;
+            tx.cashAmt = newCashAmt;
+            tx.mfsAmt = newMfsAmt;
 
             renderReport();
             closeModal('modal-edit-tx');
@@ -1191,7 +1236,9 @@
                     await db.collection('users').doc(currentUser.uid).collection('transactions').doc(tx.docId).update({
                         qty: newQty,
                         amount: newAmount,
-                        payment: newPayment
+                        payment: newPayment,
+                        cashAmt: newCashAmt,
+                        mfsAmt: newMfsAmt
                     });
                     showFlashMessage("Updated in Cloud!");
                 } catch(e) {
@@ -1216,7 +1263,7 @@
         }
 
         // ==========================================
-        //        ADMIN DASHBOARD CONTROLS
+        //         ADMIN DASHBOARD CONTROLS
         // ==========================================
         function openSettings() {
             let container = document.getElementById('settings-list-container');
@@ -1364,19 +1411,25 @@
             let historyHTML = '';
 
             [...transactions].reverse().forEach(tx => {
+                // Backward compatibility for old transactions that don't have cashAmt/mfsAmt
+                let safeCashAmt = tx.cashAmt !== undefined ? tx.cashAmt : (tx.payment === 'Cash' ? tx.amount : 0);
+                let safeMfsAmt = tx.mfsAmt !== undefined ? tx.mfsAmt : (tx.payment === 'MFS' ? tx.amount : 0);
+
                 if (tx.name === 'ERS Flexiload') {
                     totalErs += tx.amount;
                 } else {
-                    if (tx.payment === 'Cash') totalCash += tx.amount;
-                    if (tx.payment === 'MFS') totalMfs += tx.amount;
+                    totalCash += safeCashAmt;
+                    totalMfs += safeMfsAmt;
                     inventoryCounts[tx.name] = (inventoryCounts[tx.name] || 0) + tx.qty;
                 }
+
+                let payLabel = tx.payment === 'Split' ? `Split (C:${safeCashAmt}/M:${safeMfsAmt})` : tx.payment;
 
                 historyHTML += `
                     <div class="history-item">
                         <div class="history-info">
                             <span class="history-title">${tx.qty}x ${tx.name}</span>
-                            <span class="history-meta">${tx.time} • ${tx.amount} ${userCurrency} • ${tx.payment}</span>
+                            <span class="history-meta">${tx.time} • ${tx.amount} ${userCurrency} • ${payLabel}</span>
                         </div>
                         <div style="display: flex; gap: 4px;">
                             <button class="delete-btn" style="color: var(--accent-color);" onclick="openEditTx(${tx.id})">✏️</button>
@@ -1402,50 +1455,6 @@
             }
             document.getElementById('inventory-list').innerHTML = invHTML || '<div class="report-row" style="color: var(--text-secondary); font-style: italic;">No items yet</div>';
             document.getElementById('history-log').innerHTML = historyHTML || '<div class="placeholder-text" style="margin-top:20px;">No transactions today</div>';
-        }
-
-        function shareReport() {
-            let dateStr = new Date().toLocaleDateString('en-GB'); 
-            let totalCash = document.getElementById('tot-cash').innerText;
-            let totalMfs = document.getElementById('tot-mfs').innerText;
-            let totalErs = document.getElementById('tot-ers').innerText;
-            
-            let reportText = `📅 Daily Report: ${dateStr}\n👤 User: ${userDisplayName}\n\n`;
-            
-            reportText += `💰 FINANCIAL SUMMARY\n`;
-            reportText += `Total Cash Collected: ${totalCash}\n`;
-            reportText += `Total MFS Collected: ${totalMfs}\n`;
-            reportText += `Total ERS Disbursed: ${totalErs}\n\n`;
-            
-            reportText += `📦 INVENTORY & SERVICES\n`;
-            
-            let inventoryCounts = {};
-            let hasItems = false;
-            
-            [...transactions].reverse().forEach(tx => {
-                if (tx.name !== 'ERS Flexiload') {
-                    inventoryCounts[tx.name] = (inventoryCounts[tx.name] || 0) + tx.qty;
-                    hasItems = true;
-                }
-            });
-
-            if (!hasItems) {
-                reportText += `None\n`;
-            } else {
-                for (const [name, qty] of Object.entries(inventoryCounts)) {
-                    reportText += `${name}: ${qty}\n`;
-                }
-            }
-
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Daily Report',
-                    text: reportText
-                }).catch(err => console.log('User cancelled share'));
-            } else {
-                navigator.clipboard.writeText(reportText);
-                alert("Report copied to clipboard!");
-            }
         }
         
         if ('serviceWorker' in navigator) {
