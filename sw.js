@@ -1,4 +1,4 @@
-const CACHE_NAME = 'amolnama-v3';
+const CACHE_NAME = 'amolnama-v4';
 const urlsToCache = [
   '/',
   '/index.html',

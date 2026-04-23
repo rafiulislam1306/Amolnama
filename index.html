@@ -716,6 +716,34 @@
         </div>
     </div>
 
+    <div id="modal-edit-tx" class="modal-overlay">
+        <div class="modal-content">
+            <div class="qty-header" id="edit-tx-name">Item Name</div>
+            
+            <div style="display:flex; gap:8px; margin-bottom:12px;">
+                <div style="flex:1;">
+                    <label style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">Qty</label>
+                    <input type="number" id="edit-tx-qty" class="settings-input" style="text-align:center;">
+                </div>
+                <div style="flex:2;">
+                    <label style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">Total Amount</label>
+                    <input type="number" id="edit-tx-amount" class="settings-input">
+                </div>
+            </div>
+            
+            <div style="margin-bottom:24px;">
+                <label style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">Payment Method</label>
+                <select id="edit-tx-payment" class="settings-input" style="text-align:left;">
+                    <option value="Cash">Cash</option>
+                    <option value="MFS">MFS</option>
+                </select>
+            </div>
+
+            <button class="save-ers-btn" onclick="saveTxEdit()">💾 UPDATE</button>
+            <button class="modal-close" onclick="closeModal('modal-edit-tx')">Cancel</button>
+        </div>
+    </div>
+
     <nav class="bottom-nav">
         <button class="nav-item active" onclick="switchTab('ers', 'ERS')">
             <span class="nav-icon">🔢</span>
@@ -1118,6 +1146,61 @@
             }
         }
 
+        // --- EDIT TRANSACTION LOGIC ---
+        let currentEditingTxId = null;
+
+        function openEditTx(localId) {
+            let tx = transactions.find(t => t.id === localId);
+            if (!tx) return;
+            
+            currentEditingTxId = localId;
+
+            // Pre-fill the modal with the current transaction data
+            document.getElementById('edit-tx-name').innerText = tx.name;
+            document.getElementById('edit-tx-qty').value = tx.qty;
+            document.getElementById('edit-tx-amount').value = tx.amount;
+            document.getElementById('edit-tx-payment').value = tx.payment;
+
+            openModal('modal-edit-tx');
+        }
+
+        async function saveTxEdit() {
+            if (!currentEditingTxId || !currentUser) return;
+
+            let txIndex = transactions.findIndex(t => t.id === currentEditingTxId);
+            if (txIndex === -1) return;
+
+            let tx = transactions[txIndex];
+            
+            // Grab the new values from the modal
+            let newQty = parseInt(document.getElementById('edit-tx-qty').value) || 0;
+            let newAmount = parseFloat(document.getElementById('edit-tx-amount').value) || 0;
+            let newPayment = document.getElementById('edit-tx-payment').value;
+
+            // 1. Update the local app instantly
+            tx.qty = newQty;
+            tx.amount = newAmount;
+            tx.payment = newPayment;
+
+            renderReport();
+            closeModal('modal-edit-tx');
+
+            // 2. Sync the edit to the Cloud
+            if (tx.docId) {
+                try {
+                    await db.collection('users').doc(currentUser.uid).collection('transactions').doc(tx.docId).update({
+                        qty: newQty,
+                        amount: newAmount,
+                        payment: newPayment
+                    });
+                    showFlashMessage("Updated in Cloud!");
+                } catch(e) {
+                    console.error("Edit failed:", e);
+                    showFlashMessage("Error saving edit.");
+                }
+            }
+        }
+
         async function deleteTransaction(docId, localId) {
             if(!currentUser) return;
             transactions = transactions.filter(tx => tx.id !== localId);
@@ -1295,7 +1378,10 @@
                             <span class="history-title">${tx.qty}x ${tx.name}</span>
                             <span class="history-meta">${tx.time} • ${tx.amount} ${userCurrency} • ${tx.payment}</span>
                         </div>
-                        <button class="delete-btn" onclick="deleteTransaction('${tx.docId}', ${tx.id})">🗑️</button>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="delete-btn" style="color: var(--accent-color);" onclick="openEditTx(${tx.id})">✏️</button>
+                            <button class="delete-btn" onclick="deleteTransaction('${tx.docId}', ${tx.id})">🗑️</button>
+                        </div>
                     </div>
                 `;
             });
