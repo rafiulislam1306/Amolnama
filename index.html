@@ -533,6 +533,14 @@
     </header>
 
     <main id="tab-ers" class="tab-content active">
+        <div class="toggle-container">
+            <span class="toggle-label">Payment Mode:</span>
+            <div class="toggle-switch" onclick="toggleMFS()">
+                <div class="toggle-option sync-cash active">Cash</div>
+                <div class="toggle-option sync-mfs">MFS</div>
+            </div>
+        </div>
+
         <div class="ers-container">
             <div class="ers-display-wrapper">
                 <div class="ers-currency">Tk</div>
@@ -906,7 +914,12 @@
         function saveErs() {
             const amount = parseInt(currentErsAmount);
             if (amount > 0) {
-                addTransactionToCloud('ERS', 'ERS Flexiload', amount, 1, 'Cash');
+                // Check if the toggle is set to MFS or Cash
+                let paymentMethod = isMfs ? 'MFS' : 'Cash';
+                
+                // Save using the selected payment method instead of hardcoding 'Cash'
+                addTransactionToCloud('ERS', 'ERS Flexiload', amount, 1, paymentMethod);
+                
                 currentErsAmount = '0';
                 updateErsDisplay();
             }
