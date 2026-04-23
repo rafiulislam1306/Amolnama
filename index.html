@@ -1456,6 +1456,91 @@
             document.getElementById('inventory-list').innerHTML = invHTML || '<div class="report-row" style="color: var(--text-secondary); font-style: italic;">No items yet</div>';
             document.getElementById('history-log').innerHTML = historyHTML || '<div class="placeholder-text" style="margin-top:20px;">No transactions today</div>';
         }
+
+        function shareReport() {
+            let dateStr = new Date().toLocaleDateString('en-GB'); 
+            let totalCash = document.getElementById('tot-cash').innerText;
+            let totalMfs = document.getElementById('tot-mfs').innerText;
+            let totalErs = document.getElementById('tot-ers').innerText;
+            
+            // Grab the Grand Total from the UI
+            let grandTotal = "0 Tk";
+            let totalElement = document.getElementById('report-total-all');
+            if (totalElement) {
+                grandTotal = totalElement.innerText;
+            }
+            
+            let reportText = `📅 Daily Report: ${dateStr}\n👤 User: ${userDisplayName}\n\n`;
+            
+            reportText += `💰 FINANCIAL SUMMARY\n`;
+            reportText += `Total Cash: ${totalCash}\n`;
+            reportText += `Total MFS: ${totalMfs}\n`;
+            reportText += `Total ERS: ${totalErs}\n`;
+            reportText += `----------------------\n`;
+            reportText += `🏆 GRAND TOTAL: ${grandTotal}\n\n`;
+            
+            reportText += `📦 INVENTORY & SERVICES\n`;
+            
+            let inventoryCounts = {};
+            let hasItems = false;
+            
+            // Count items cleanly
+            transactions.forEach(tx => {
+                if (tx.name !== 'ERS Flexiload') {
+                    inventoryCounts[tx.name] = (inventoryCounts[tx.name] || 0) + tx.qty;
+                    hasItems = true;
+                }
+            });
+
+            if (!hasItems) {
+                reportText += `None\n`;
+            } else {
+                for (const [name, qty] of Object.entries(inventoryCounts)) {
+                    reportText += `${qty}x ${name}\n`;
+                }
+            }
+
+            // Bulletproof Share & Clipboard Logic
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Amolnama Daily Report',
+                    text: reportText
+                }).catch(err => {
+                    console.log('Share failed/cancelled:', err);
+                });
+            } else {
+                // If Native Share isn't supported (like on desktop), force copy to clipboard
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(reportText)
+                            .then(() => alert("Report copied to clipboard! You can paste it anywhere."))
+                            .catch(() => fallbackCopy(reportText));
+                    } else {
+                        fallbackCopy(reportText);
+                    }
+                } catch (e) {
+                    fallbackCopy(reportText);
+                }
+            }
+        }
+
+        // The ultimate backup method for older phones to guarantee it copies
+        function fallbackCopy(text) {
+            let textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";  // Avoid scrolling to bottom
+            textArea.style.opacity = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                alert("Report copied to clipboard! You can paste it into WhatsApp.");
+            } catch (err) {
+                alert("Could not copy automatically. Please try again.");
+            }
+            document.body.removeChild(textArea);
+        }
         
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
