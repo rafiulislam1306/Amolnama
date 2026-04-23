@@ -1,9 +1,10 @@
 {
   "name": "Amolnama",
   "short_name": "Amolnama",
-  "start_url": "/",
+  "start_url": "/Amolnama/index.html",
+  "scope": "/Amolnama/",
   "display": "standalone",
-  "background_color": "#f4f4f9",
+  "background_color": "#ffffff",
   "theme_color": "#007bff",
   "icons": [
     {
