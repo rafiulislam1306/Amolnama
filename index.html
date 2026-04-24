@@ -980,7 +980,7 @@
                     currentErsAmount = num;
                 }
             } else {
-                if (currentErsAmount.length < 5) {
+                if ((currentErsAmount + num).length <= 5) {
                     currentErsAmount += num;
                 }
             }
@@ -1278,7 +1278,7 @@
             } else if (newPayment === 'Split') {
                 newCashAmt = parseFloat(document.getElementById('edit-tx-cash').value) || 0;
                 newMfsAmt = parseFloat(document.getElementById('edit-tx-mfs').value) || 0;
-                if (newCashAmt + newMfsAmt !== newAmount) {
+                if (Math.abs((newCashAmt + newMfsAmt) - newAmount) > 0.01) {
                     alert("Split amounts must equal the Total Tk!");
                     return;
                 }
