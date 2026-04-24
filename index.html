@@ -929,26 +929,6 @@
             });
         }
 
-        function showAuthError(msg) {
-            document.getElementById('auth-error').innerText = msg;
-        }
-
-        function signInWithGoogle() {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider)
-                .catch(error => showAuthError(error.message));
-        }
-
-        function logout() {
-            auth.signOut().then(() => {
-                closeModal('modal-settings');
-                transactions = []; 
-                trashTransactions = []; 
-                renderReport();
-                switchTab('ers', 'ERS'); 
-            });
-        }
-
         // --- UI NAVIGATION ---
         function switchTab(tabId, title) {
             document.querySelectorAll('.tab-content').forEach(tab => {
@@ -1721,23 +1701,6 @@
                     fallbackCopy(reportText);
                 }
             }
-        }
-
-        function fallbackCopy(text) {
-            let textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "fixed";  
-            textArea.style.opacity = "0";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                alert("Report copied to clipboard! You can paste it into WhatsApp.");
-            } catch (err) {
-                alert("Could not copy automatically. Please try again.");
-            }
-            document.body.removeChild(textArea);
         }
 
         function fallbackCopy(text) {
