@@ -1478,15 +1478,14 @@
                 let safeCashAmt = tx.cashAmt !== undefined ? tx.cashAmt : (tx.payment === 'Cash' ? tx.amount : 0);
                 let safeMfsAmt = tx.mfsAmt !== undefined ? tx.mfsAmt : (tx.payment === 'MFS' ? tx.amount : 0);
 
-                // 1. ALL money goes into the Cash and MFS buckets, no matter what item was sold!
+                // FIX: All money is added to Cash/MFS buckets immediately, no matter what item it is!
                 totalCash += safeCashAmt;
                 totalMfs += safeMfsAmt;
 
-                // 2. Track ERS balance separately, and count physical inventory
                 if (tx.name === 'ERS Flexiload') {
-                    totalErs += tx.amount;
+                    totalErs += tx.amount; // Just track ERS separately
                 } else {
-                    inventoryCounts[tx.name] = (inventoryCounts[tx.name] || 0) + tx.qty;
+                    inventoryCounts[tx.name] = (inventoryCounts[tx.name] || 0) + tx.qty; // Count physical items
                 }
 
                 let payLabel = tx.payment === 'Split' ? `Split (C:${safeCashAmt}/M:${safeMfsAmt})` : tx.payment;
@@ -1505,12 +1504,11 @@
                 `;
             });
 
-            // Update the UI numbers
             document.getElementById('tot-cash').innerText = totalCash + ' ' + userCurrency;
             document.getElementById('tot-mfs').innerText = totalMfs + ' ' + userCurrency;
             document.getElementById('tot-ers').innerText = totalErs + ' ' + userCurrency;
 
-            // Grand Total is now simply Cash + MFS (Real money collected)
+            // Grand Total is now accurately calculated from the true Cash + MFS buckets
             let grandTotal = totalCash + totalMfs;
             let totalElement = document.getElementById('report-total-all');
             if (totalElement) {
