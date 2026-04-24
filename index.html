@@ -766,11 +766,11 @@
             <div id="edit-split-fields" style="display:none; gap:8px; margin-bottom:24px;">
                 <div style="flex:1;">
                     <label style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">Cash Portion</label>
-                    <input type="number" id="edit-tx-cash" class="settings-input" style="text-align:center;">
+                    <input type="number" id="edit-tx-cash" class="settings-input" style="text-align:center;" oninput="updateSplitTotal()">
                 </div>
                 <div style="flex:1;">
                     <label style="font-size: 0.8rem; color: var(--text-secondary); font-weight: bold;">MFS Portion</label>
-                    <input type="number" id="edit-tx-mfs" class="settings-input" style="text-align:center;">
+                    <input type="number" id="edit-tx-mfs" class="settings-input" style="text-align:center;" oninput="updateSplitTotal()">
                 </div>
             </div>
 
@@ -1238,6 +1238,12 @@
         function toggleEditSplitFields() {
             let method = document.getElementById('edit-tx-payment').value;
             document.getElementById('edit-split-fields').style.display = (method === 'Split') ? 'flex' : 'none';
+        }
+
+        function updateSplitTotal() {
+            let cash = parseFloat(document.getElementById('edit-tx-cash').value) || 0;
+            let mfs = parseFloat(document.getElementById('edit-tx-mfs').value) || 0;
+            document.getElementById('edit-tx-amount').value = cash + mfs;
         }
 
         function openEditTx(localId) {
