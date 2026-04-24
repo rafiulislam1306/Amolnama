@@ -759,7 +759,10 @@
 
     <div id="modal-trash" class="modal-overlay">
         <div class="modal-content">
-            <h3 class="modal-title">Deleted Items</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 class="modal-title" style="margin-bottom: 0;">Deleted Items</h3>
+                <button class="delete-btn" style="font-size: 0.9rem; padding: 6px 12px; border: 1px solid #ef4444; border-radius: 4px; cursor: pointer;" onclick="emptyTrash()">🗑️ Empty All</button>
+            </div>
             <div id="trash-log" style="max-height: 50vh; overflow-y: auto; margin-bottom: 16px;">
                 </div>
             <button class="modal-close" onclick="closeModal('modal-trash')">Close</button>
@@ -1296,11 +1299,65 @@
                             <span class="history-title" style="text-decoration: line-through;">${tx.qty}x ${tx.name}</span>
                             <span class="history-meta">${tx.time} • ${tx.amount} ${userCurrency}</span>
                         </div>
-                        <button class="delete-btn" style="color: #10b981; border: 1px solid #10b981; padding: 4px 12px; border-radius: 4px; font-size: 0.9rem;" onclick="restoreTransaction('${tx.docId}', ${tx.id})">♻️ Restore</button>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="delete-btn" style="color: #10b981; border: 1px solid #10b981; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;" onclick="restoreTransaction('${tx.docId}', ${tx.id})">♻️ Restore</button>
+                            <button class="delete-btn" style="color: #ef4444; border: 1px solid #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;" onclick="permanentlyDeleteTx('${tx.docId}', ${tx.id})">❌ Delete</button>
+                        </div>
                     </div>
                 `;
             });
             document.getElementById('trash-log').innerHTML = trashHTML || '<div class="placeholder-text">Trash is empty</div>';
+        }
+
+        async function permanentlyDeleteTx(docId, localId) {
+            if(!currentUser) return;
+
+            let isConfirmed = confirm("Permanently delete this transaction? This cannot be undone.");
+            if (!isConfirmed) return;
+
+            // 1. Remove it from local memory
+            trashTransactions = trashTransactions.filter(tx => tx.id !== localId);
+            renderTrash();
+
+            // 2. Obliterate it from the Firebase Cloud
+            if(docId) {
+                try {
+                    await db.collection('users').doc(currentUser.uid).collection('transactions').doc(docId).delete();
+                    showFlashMessage("Permanently Deleted!");
+                } catch(e) {
+                    console.error("Hard delete failed:", e);
+                }
+            }
+        }
+
+        async function emptyTrash() {
+            if(!currentUser || trashTransactions.length === 0) return;
+
+            let isConfirmed = confirm("Are you sure you want to permanently delete ALL items in the trash? This cannot be undone.");
+            if (!isConfirmed) return;
+
+            // 1. Copy the list of items to delete, then clear the local array instantly so the UI updates
+            let itemsToDelete = [...trashTransactions];
+            trashTransactions = [];
+            renderTrash();
+            
+            showFlashMessage("Emptying Trash...");
+
+            // 2. Tell Firebase to delete every single one of those documents
+            try {
+                let deletePromises = itemsToDelete.map(tx => {
+                    if(tx.docId) {
+                        return db.collection('users').doc(currentUser.uid).collection('transactions').doc(tx.docId).delete();
+                    }
+                });
+                
+                // Wait for all deletions to finish
+                await Promise.all(deletePromises);
+                showFlashMessage("Trash Emptied!");
+            } catch(e) {
+                console.error("Empty trash failed:", e);
+                showFlashMessage("Error emptying trash.");
+            }
         }
 
         async function restoreTransaction(docId, localId) {
