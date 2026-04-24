@@ -511,7 +511,13 @@
 </head>
 <body>
 
-    <div id="modal-auth" class="modal-overlay active">
+    <div id="splash-screen" class="modal-overlay active" style="background-color: var(--surface-color); z-index: 10000; flex-direction: column; align-items: center; justify-content: center;">
+        <div style="font-size: 3rem; margin-bottom: 16px;">📊</div>
+        <h2 style="color: var(--accent-color); font-weight: 700;">Amolnama</h2>
+        <p style="color: var(--text-secondary); margin-top: 8px; font-size: 0.9rem;">Loading workspace...</p>
+    </div>
+
+    <div id="modal-auth" class="modal-overlay">
         <div class="modal-content">
             <h2 class="modal-title" style="margin-bottom: 24px;">Amolnama Login</h2>
             
@@ -852,21 +858,59 @@
         let trashTransactions = []; // NEW TRASH ARRAY
 
         // --- AUTHENTICATION LOGIC ---
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                currentUser = user;
-                userDisplayName = user.displayName || 'User';
-                document.getElementById('modal-auth').classList.remove('active');
-                
-                document.getElementById('settings-btn').style.display = 'none';
-                document.getElementById('logout-btn').style.display = 'none';
-                
-                initUserData();
-            } else {
-                currentUser = null;
-                document.getElementById('modal-auth').classList.add('active');
-            }
-        });
+        let isInitialLoad = true;
+
+        // 1. Explicitly tell Firebase to remember the user forever on this device
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+            .then(() => {
+                // 2. Listen for the Auth State
+                auth.onAuthStateChanged(user => {
+                    // Drop the Splash Screen the very first time Firebase replies
+                    if (isInitialLoad) {
+                        document.getElementById('splash-screen').classList.remove('active');
+                        isInitialLoad = false;
+                    }
+
+                    if (user) {
+                        // User is logged in!
+                        currentUser = user;
+                        userDisplayName = user.displayName || 'User';
+                        document.getElementById('modal-auth').classList.remove('active');
+                        
+                        document.getElementById('settings-btn').style.display = 'none';
+                        document.getElementById('logout-btn').style.display = 'none';
+                        
+                        initUserData();
+                    } else {
+                        // User is NOT logged in. Show the login screen.
+                        currentUser = null;
+                        document.getElementById('modal-auth').classList.add('active');
+                    }
+                });
+            })
+            .catch((error) => {
+                console.error("Error setting persistence:", error);
+            });
+
+        function showAuthError(msg) {
+            document.getElementById('auth-error').innerText = msg;
+        }
+
+        function signInWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .catch(error => showAuthError(error.message));
+        }
+
+        function logout() {
+            auth.signOut().then(() => {
+                closeModal('modal-settings');
+                transactions = []; 
+                trashTransactions = []; 
+                renderReport();
+                switchTab('ers', 'ERS'); 
+            });
+        }
 
         function showAuthError(msg) {
             document.getElementById('auth-error').innerText = msg;
