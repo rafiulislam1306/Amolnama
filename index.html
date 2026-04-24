@@ -998,11 +998,15 @@
 
         function saveErs(paymentMethod) {
             const amount = parseInt(currentErsAmount);
-            if (amount > 0) {
-                addTransactionToCloud('ERS', 'ERS Flexiload', amount, 1, paymentMethod);
-                currentErsAmount = '0';
-                updateErsDisplay();
+            
+            if (amount <= 0) {
+                alert("Please enter a valid amount before saving.");
+                return;
             }
+            
+            addTransactionToCloud('ERS', 'ERS Flexiload', amount, 1, paymentMethod);
+            currentErsAmount = '0';
+            updateErsDisplay();
         }
 
         // --- SIMS & MODALS LOGIC ---
@@ -1071,12 +1075,16 @@
 
         function saveQuantity() {
             let qtyInt = parseInt(currentQty) || 0;
-            if (qtyInt > 0) {
-                let total = qtyInt * currentItemPrice;
-                let paymentMethod = (currentItemPrice > 0 && isMfs) ? "MFS" : "Cash";
-                addTransactionToCloud('Item', currentItemName, total, qtyInt, paymentMethod);
-                closeModal('modal-quantity');
+            
+            if (qtyInt <= 0) {
+                alert("Please enter a quantity of 1 or more.");
+                return;
             }
+            
+            let total = qtyInt * currentItemPrice;
+            let paymentMethod = (currentItemPrice > 0 && isMfs) ? "MFS" : "Cash";
+            addTransactionToCloud('Item', currentItemName, total, qtyInt, paymentMethod);
+            closeModal('modal-quantity');
         }
 
         // --- UI RENDERING FOR THE NEW OBJECT CATALOG ---
@@ -1274,6 +1282,12 @@
                     alert("Split amounts must equal the Total Tk!");
                     return;
                 }
+            }
+
+            // --- SAFETY CHECK: No negative numbers allowed ---
+            if (newAmount < 0 || newCashAmt < 0 || newMfsAmt < 0 || newQty < 0) {
+                alert("Error: Amounts and quantities cannot be negative numbers!");
+                return;
             }
 
             tx.qty = newQty;
@@ -1502,7 +1516,7 @@
             let priceVal = parseFloat(document.getElementById('new-item-price').value);
             let catVal = document.getElementById('new-item-category').value;
 
-            if (nameVal && !isNaN(priceVal)) {
+            if (nameVal && !isNaN(priceVal) && priceVal >= 0) {
                 let newKey = "item_" + Date.now();
                 let newOrder = Object.keys(globalCatalog).length + 1;
                 
@@ -1522,7 +1536,7 @@
                 openSettings(); 
                 showFlashMessage("Item Added! Don't forget to click Save.");
             } else {
-                alert("Please enter a valid name and price.");
+                alert("Please enter a valid name and a price of 0 or higher.");
             }
         }
 
