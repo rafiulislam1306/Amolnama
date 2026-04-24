@@ -1,4 +1,4 @@
-const CACHE_NAME = 'amolnama-v10';
+const CACHE_NAME = 'amolnama-v11';
 const urlsToCache = [
   './',
   './index.html',
@@ -8,6 +8,9 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
+  // MAGIC LINE 1: Force the waiting service worker to become the active service worker.
+  self.skipWaiting(); 
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
@@ -16,13 +19,16 @@ self.addEventListener('install', event => {
   );
 });
 
-// The cleanup crew! This deletes the broken v5 cache.
 self.addEventListener('activate', event => {
+  // MAGIC LINE 2: Tell the new service worker to take control of the app immediately.
+  event.waitUntil(clients.claim()); 
+
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
