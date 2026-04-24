@@ -1235,6 +1235,7 @@
             tx.payment = newPayment;
             tx.cashAmt = newCashAmt;
             tx.mfsAmt = newMfsAmt;
+            tx.isEdited = true; // <--- NEW TAG ADDED
 
             renderReport();
             closeModal('modal-edit-tx');
@@ -1246,7 +1247,8 @@
                         amount: newAmount,
                         payment: newPayment,
                         cashAmt: newCashAmt,
-                        mfsAmt: newMfsAmt
+                        mfsAmt: newMfsAmt,
+                        isEdited: true // <--- SYNC TAG TO CLOUD
                     });
                     showFlashMessage("Updated in Cloud!");
                 } catch(e) {
@@ -1367,6 +1369,7 @@
             if (txIndex > -1) {
                 let tx = trashTransactions.splice(txIndex, 1)[0];
                 tx.isDeleted = false;
+                tx.isRestored = true; // <--- NEW TAG ADDED
                 transactions.push(tx);
                 transactions.sort((a, b) => a.id - b.id);
                 renderReport();
@@ -1376,7 +1379,8 @@
             if(docId) {
                 try {
                     await db.collection('users').doc(currentUser.uid).collection('transactions').doc(docId).update({
-                        isDeleted: false
+                        isDeleted: false,
+                        isRestored: true // <--- SYNC TAG TO CLOUD
                     });
                     showFlashMessage("Transaction Restored!");
                     closeModal('modal-trash');
@@ -1535,22 +1539,32 @@
                 let safeCashAmt = tx.cashAmt !== undefined ? tx.cashAmt : (tx.payment === 'Cash' ? tx.amount : 0);
                 let safeMfsAmt = tx.mfsAmt !== undefined ? tx.mfsAmt : (tx.payment === 'MFS' ? tx.amount : 0);
 
-                // FIX: All money is added to Cash/MFS buckets immediately, no matter what item it is!
-                totalCash += safeCashAmt;
-                totalMfs += safeMfsAmt;
-
                 if (tx.name === 'ERS Flexiload') {
-                    totalErs += tx.amount; // Just track ERS separately
+                    totalErs += tx.amount;
                 } else {
-                    inventoryCounts[tx.name] = (inventoryCounts[tx.name] || 0) + tx.qty; // Count physical items
+                    totalCash += safeCashAmt;
+                    totalMfs += safeMfsAmt;
+                    inventoryCounts[tx.name] = (inventoryCounts[tx.name] || 0) + tx.qty;
                 }
 
                 let payLabel = tx.payment === 'Split' ? `Split (C:${safeCashAmt}/M:${safeMfsAmt})` : tx.payment;
+                
+                // --- NEW BADGE LOGIC ---
+                let badges = '';
+                if (tx.isEdited) {
+                    badges += '<span style="font-size: 0.7rem; background: #fef3c7; color: #92400e; padding: 2px 6px; border-radius: 10px; margin-left: 8px; font-weight: bold;">Edited</span>';
+                }
+                if (tx.isRestored) {
+                    badges += '<span style="font-size: 0.7rem; background: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 10px; margin-left: 8px; font-weight: bold;">Restored</span>';
+                }
 
                 historyHTML += `
                     <div class="history-item">
                         <div class="history-info">
-                            <span class="history-title">${tx.qty}x ${tx.name}</span>
+                            <div style="display: flex; align-items: center;">
+                                <span class="history-title">${tx.qty}x ${tx.name}</span>
+                                ${badges} 
+                            </div>
                             <span class="history-meta">${tx.time} • ${tx.amount} ${userCurrency} • ${payLabel}</span>
                         </div>
                         <div style="display: flex; gap: 4px;">
@@ -1565,8 +1579,7 @@
             document.getElementById('tot-mfs').innerText = totalMfs + ' ' + userCurrency;
             document.getElementById('tot-ers').innerText = totalErs + ' ' + userCurrency;
 
-            // Grand Total is now accurately calculated from the true Cash + MFS buckets
-            let grandTotal = totalCash + totalMfs;
+            let grandTotal = totalCash + totalMfs + totalErs;
             let totalElement = document.getElementById('report-total-all');
             if (totalElement) {
                 totalElement.innerText = grandTotal + ' ' + userCurrency;
