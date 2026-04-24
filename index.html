@@ -864,29 +864,30 @@
         auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
             .then(() => {
                 // 2. Listen for the Auth State
-                auth.onAuthStateChanged(user => {
-                    // Drop the Splash Screen the very first time Firebase replies
-                    if (isInitialLoad) {
-                        document.getElementById('splash-screen').classList.remove('active');
-                        isInitialLoad = false;
-                    }
-
-                    if (user) {
-                        // User is logged in!
-                        currentUser = user;
-                        userDisplayName = user.displayName || 'User';
-                        document.getElementById('modal-auth').classList.remove('active');
-                        
-                        document.getElementById('settings-btn').style.display = 'none';
-                        document.getElementById('logout-btn').style.display = 'none';
-                        
-                        initUserData();
-                    } else {
-                        // User is NOT logged in. Show the login screen.
-                        currentUser = null;
-                        document.getElementById('modal-auth').classList.add('active');
-                    }
-                });
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // User is logged in! Setup UI but KEEP the splash screen up for now.
+                currentUser = user;
+                userDisplayName = user.displayName || 'User';
+                document.getElementById('modal-auth').classList.remove('active');
+                
+                document.getElementById('settings-btn').style.display = 'none';
+                document.getElementById('logout-btn').style.display = 'none';
+                
+                // Tell the data fetcher to do its job
+                initUserData(); 
+            } else {
+                // User is NOT logged in. Show the login screen.
+                currentUser = null;
+                document.getElementById('modal-auth').classList.add('active');
+                
+                // Drop the splash screen right now so they can actually see the login box
+                if (isInitialLoad) {
+                    document.getElementById('splash-screen').classList.remove('active');
+                    isInitialLoad = false;
+                }
+            }
+        });
             })
             .catch((error) => {
                 console.error("Error setting persistence:", error);
@@ -1126,7 +1127,6 @@
         // ==========================================
         async function initUserData() {
             if(!currentUser) return;
-            showFlashMessage("Loading Cloud Data...");
 
             try {
                 // 1. Fetch Global Catalog
@@ -1184,6 +1184,12 @@
             } catch(e) {
                 console.error("Error loading data:", e);
                 showFlashMessage("Error loading data!");
+            } finally {
+                // 3. THE MAGIC REVEAL: Everything is loaded, drop the splash screen!
+                if (isInitialLoad) {
+                    document.getElementById('splash-screen').classList.remove('active');
+                    isInitialLoad = false;
+                }
             }
         }
 
