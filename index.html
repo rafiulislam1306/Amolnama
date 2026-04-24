@@ -1605,11 +1605,12 @@
                 let safeCashAmt = tx.cashAmt !== undefined ? tx.cashAmt : (tx.payment === 'Cash' ? tx.amount : 0);
                 let safeMfsAmt = tx.mfsAmt !== undefined ? tx.mfsAmt : (tx.payment === 'MFS' ? tx.amount : 0);
 
+                totalCash += safeCashAmt;
+                totalMfs += safeMfsAmt;
+
                 if (tx.name === 'ERS Flexiload') {
                     totalErs += tx.amount;
                 } else {
-                    totalCash += safeCashAmt;
-                    totalMfs += safeMfsAmt;
                     inventoryCounts[tx.name] = (inventoryCounts[tx.name] || 0) + tx.qty;
                 }
 
@@ -1645,7 +1646,7 @@
             document.getElementById('tot-mfs').innerText = totalMfs + ' ' + userCurrency;
             document.getElementById('tot-ers').innerText = totalErs + ' ' + userCurrency;
 
-            let grandTotal = totalCash + totalMfs + totalErs;
+            let grandTotal = totalCash + totalMfs;
             let totalElement = document.getElementById('report-total-all');
             if (totalElement) {
                 totalElement.innerText = grandTotal + ' ' + userCurrency;
