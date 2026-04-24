@@ -1478,11 +1478,14 @@
                 let safeCashAmt = tx.cashAmt !== undefined ? tx.cashAmt : (tx.payment === 'Cash' ? tx.amount : 0);
                 let safeMfsAmt = tx.mfsAmt !== undefined ? tx.mfsAmt : (tx.payment === 'MFS' ? tx.amount : 0);
 
+                // 1. ALL money goes into the Cash and MFS buckets, no matter what item was sold!
+                totalCash += safeCashAmt;
+                totalMfs += safeMfsAmt;
+
+                // 2. Track ERS balance separately, and count physical inventory
                 if (tx.name === 'ERS Flexiload') {
                     totalErs += tx.amount;
                 } else {
-                    totalCash += safeCashAmt;
-                    totalMfs += safeMfsAmt;
                     inventoryCounts[tx.name] = (inventoryCounts[tx.name] || 0) + tx.qty;
                 }
 
@@ -1502,11 +1505,13 @@
                 `;
             });
 
+            // Update the UI numbers
             document.getElementById('tot-cash').innerText = totalCash + ' ' + userCurrency;
             document.getElementById('tot-mfs').innerText = totalMfs + ' ' + userCurrency;
             document.getElementById('tot-ers').innerText = totalErs + ' ' + userCurrency;
 
-            let grandTotal = totalCash + totalMfs + totalErs;
+            // Grand Total is now simply Cash + MFS (Real money collected)
+            let grandTotal = totalCash + totalMfs;
             let totalElement = document.getElementById('report-total-all');
             if (totalElement) {
                 totalElement.innerText = grandTotal + ' ' + userCurrency;
@@ -1536,11 +1541,11 @@
             let reportText = `📅 Daily Report: ${dateStr}\n👤 User: ${userDisplayName}\n\n`;
             
             reportText += `💰 FINANCIAL SUMMARY\n`;
-            reportText += `Total Cash: ${totalCash}\n`;
-            reportText += `Total MFS: ${totalMfs}\n`;
-            reportText += `Total ERS: ${totalErs}\n`;
+            reportText += `Total Cash Collected: ${totalCash}\n`;
+            reportText += `Total MFS Collected: ${totalMfs}\n`;
             reportText += `----------------------\n`;
             reportText += `🏆 GRAND TOTAL: ${grandTotal}\n\n`;
+            reportText += `📱 Total ERS Disbursed: ${totalErs}\n\n`;
             
             reportText += `📦 INVENTORY & SERVICES\n`;
             
@@ -1582,6 +1587,23 @@
                     fallbackCopy(reportText);
                 }
             }
+        }
+
+        function fallbackCopy(text) {
+            let textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";  
+            textArea.style.opacity = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                alert("Report copied to clipboard! You can paste it into WhatsApp.");
+            } catch (err) {
+                alert("Could not copy automatically. Please try again.");
+            }
+            document.body.removeChild(textArea);
         }
 
         function fallbackCopy(text) {
