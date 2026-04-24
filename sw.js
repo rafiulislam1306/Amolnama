@@ -1,4 +1,4 @@
-const CACHE_NAME = 'amolnama-v22';
+const CACHE_NAME = 'amolnama-v23';
 const urlsToCache = [
   './',
   './index.html',
@@ -39,13 +39,19 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   event.respondWith(
-    fetch(event.request).then(networkResponse => {
-      return caches.open(CACHE_NAME).then(cache => {
-        cache.put(event.request, networkResponse.clone());
+    caches.match(event.request).then(cachedResponse => {
+      // 1. The background internet check
+      const fetchPromise = fetch(event.request).then(networkResponse => {
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, networkResponse.clone());
+        });
         return networkResponse;
+      }).catch(err => {
+        console.log('Offline: Using strictly cached version.', err);
       });
-    }).catch(() => {
-      return caches.match(event.request);
+
+      // 2. The instant delivery
+      return cachedResponse || fetchPromise;
     })
   );
 });
